@@ -258,7 +258,7 @@
                 setup: () => { workspace1.value = "(тут має бути код)"; workspace2.value = "Вставте сюди: "; workspace2.setSelectionRange(workspace2.value.length, workspace2.value.length); },
                 action: () => { workspace2.value += gameClipboard; }
             },
-            'l2_select2': { command: 'Виділі... у Полі 2', key: 'KeyA', level: 2, fieldId: 'workspace2', 
+            'l2_select2': { command: 'Виділи... у Полі 2', key: 'KeyA', level: 2, fieldId: 'workspace2', 
                 setup: () => { workspace1.value = "Текст 1"; workspace2.value = "Текст 2"; workspace2.blur(); },
                 action: () => { workspace2.select(); }
             },
@@ -604,6 +604,9 @@
         
         // ОНОВЛЕНО: Ця функція тепер керує і анімацією, і логікою спроб
         function handleIncorrectAttempt() {
+            // Запобігаємо обробці, якщо гра вже неактивна або спроб не залишилось
+            if (!gameActive || taskLives <= 0) return;
+
             // 1. Анімація
             gameArea.classList.add('incorrect-animation');
             setTimeout(() => {
@@ -615,11 +618,16 @@
             livesDisplay.textContent = taskLives;
             
             if (taskLives <= 0) {
+                // Негайно деактивуємо гру, щоб запобігти подальшим натисканням
+                // клавіш перед повним завершенням гри.
+                gameActive = false; 
+
                 // Додаємо невелику затримку, щоб гравець побачив "0"
-                // і анімація завершилась перед кінцем гри
+                // і анімація завершилась перед кінцем гри.
                 setTimeout(endGame, 100); 
             }
         }
+
 
         // --- Слухачі Подій ---
         startButton.addEventListener('click', startGame);
