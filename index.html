@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тренажер Гарячих Клавіш</title>
+    <!-- Підключення Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Додаткові стилі для гри */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* Стиль для таймера */
+        #timer-bar {
+            transition: width 0.1s linear;
+        }
+
+        /* Анімація для правильної відповіді */
+        @keyframes correct-flash {
+            0% { background-color: #1f2937; } /* bg-gray-800 */
+            50% { background-color: #22c55e; } /* Зелений */
+            100% { background-color: #1f2937; }
+        }
+        .correct-animation {
+            animation: correct-flash 0.3s ease-out;
+        }
+
+        /* Анімація для неправильної відповіді */
+        @keyframes incorrect-shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        .incorrect-animation {
+            animation: incorrect-shake 0.3s ease-out;
+            background-color: #ef4444; /* Червоний */
+        }
+        
+        /* Стилі для робочої області */
+        #workspace {
+            font-family: monospace;
+            caret-color: #34d399; /* Колір курсора */
+        }
+        /* Приховуємо курсор, коли він неактивний, щоб не збивати з толку */
+        #workspace:not(:focus) {
+            caret-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl mx-auto bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-10 transition-all">
+        
+        <h1 class="text-3xl md:text-4xl font-bold text-center mb-4 text-cyan-400">Тренажер Гарячих Клавіш</h1>
+        
+        <!-- Інструкції -->
+        <div class="bg-gray-700 p-4 rounded-lg mb-6 text-sm">
+            <p class="font-bold mb-2">Інструкції:</p>
+            <p class="mb-2">Виконуйте завдання за допомогою гарячих клавіш у текстовому полі нижче. Швидкість зростатиме!</p>
+            <ul class="list-disc list-inside">
+                <li><strong class="text-cyan-300">Виділити все:</strong> Ctrl + A</li>
+                <li><strong class="text-cyan-300">Копіювати:</strong> Ctrl + C</li>
+                <li><strong class="text-cyan-300">Вставити:</strong> Ctrl + V</li>
+                <li><strong class="text-cyan-300">Скасувати:</strong> Ctrl + Z</li>
+            </ul>
+        </div>
+
+        <!-- Ігрова зона -->
+        <div id="game-container" class="relative">
+            <!-- Рахунок -->
+            <div class="absolute top-2 right-2 bg-gray-900 px-4 py-2 rounded-lg shadow-inner z-10">
+                <span class="font-medium">Рахунок:</span>
+                <span id="score" class="font-bold text-2xl text-cyan-400">0</span>
+            </div>
+
+            <!-- Завдання -->
+            <div class="mb-4 text-center">
+                 <p class="text-gray-400 text-lg mb-2">Команда:</p>
+                <div id="task-display" class="text-4xl md:text-5xl font-extrabold text-white h-16 flex items-center justify-center">
+                    <!-- Завдання з'явиться тут -->
+                </div>
+            </div>
+
+            <!-- Зона завдання (Робоча область) -->
+            <div id="game-area" class="bg-gray-900 rounded-lg p-4 shadow-inner">
+                <textarea 
+                    id="workspace" 
+                    class="w-full h-48 bg-gray-800 text-white p-4 rounded-md border border-gray-700 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 resize-none"
+                    spellcheck="false">
+                </textarea>
+            </div>
+
+            <!-- Таймер -->
+            <div class="w-full bg-gray-700 rounded-full h-4 mt-6 overflow-hidden shadow-inner">
+                <div id="timer-bar" class="bg-cyan-500 h-4 rounded-full" style="width: 100%"></div>
+            </div>
+        </div>
+
+        <!-- Оверлей (Старт / Кінець гри) -->
+        <div id="overlay" class="absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center text-center p-4 rounded-2xl">
+            <h2 id="overlay-title" class="text-4xl font-bold mb-4">Почати гру</h2>
+            <p id="overlay-score" class="text-2xl mb-6"></p>
+            <button id="start-button" class="bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-bold py-3 px-8 rounded-full text-xl shadow-lg transition-transform transform hover:scale-105">
+                Почати
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DOM Елементи ---
+        const scoreDisplay = document.getElementById('score');
+        const taskDisplay = document.getElementById('task-display');
+        const timerBar = document.getElementById('timer-bar');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayScore = document.getElementById('overlay-score');
+        const startButton = document.getElementById('start-button');
+        const gameArea = document.getElementById('game-area');
+        const workspace = document.getElementById('workspace');
+
+        // --- Налаштування гри ---
+        const TASKS = {
+            'select': { command: 'Виділіть все!', key: 'a' },
+            'copy':   { command: 'Скопіюйте!', key: 'c' },
+            'paste':  { command: 'Вставте!', key: 'v' },
+            'undo':   { command: 'Скасуйте!', key: 'z' }
+        };
+        const TASK_KEYS = Object.keys(TASKS); // ['select', 'copy', 'paste', 'undo']
+
+        const STARTING_TIME = 4000; // 4 секунди на початок
+        const MIN_TIME = 1000;      // 1 секунда мінімум
+        const TIME_DECREMENT_FACTOR = 0.98; // Швидкість зростає на 2%
+
+        // --- Стан гри ---
+        let score = 0;
+        let gameActive = false;
+        let currentTaskKey = null;
+        let currentIntervalTime = STARTING_TIME;
+        
+        let taskTimer = null; // ID для setTimeout
+        let timerInterval = null; // ID для setInterval (оновлення смуги)
+        let taskStartTime = 0;
+
+        // --- Стан симуляції ---
+        let gameClipboard = ""; // Наш "фальшивий" буфер обміну
+        let undoState = ""; // Стан для симуляції скасування
+
+        // --- Функції ---
+
+        function startGame() {
+            score = 0;
+            currentIntervalTime = STARTING_TIME;
+            gameActive = true;
+            gameClipboard = "ПОЧАТКОВИЙ_БУФЕР";
+            
+            updateScoreDisplay();
+            overlay.classList.add('hidden');
+            workspace.value = 'Гра починається...';
+            
+            nextTask();
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearAllTimers();
+
+            overlayTitle.textContent = 'Гра завершена!';
+            overlayScore.textContent = `Ваш рахунок: ${score}`;
+            startButton.textContent = 'Спробувати знову';
+            overlay.classList.remove('hidden');
+            taskDisplay.textContent = '🏁';
+            workspace.value = `Ваш фінальний рахунок: ${score}. Дякую за гру!`;
+            workspace.readOnly = true;
+        }
+
+        /**
+         * Генерує нове завдання та налаштовує робочу область
+         */
+        function nextTask() {
+            if (!gameActive) return;
+
+            clearAllTimers(); // Очищуємо попередні таймери
+
+            // Обираємо випадкове завдання
+            let newTaskKey;
+            do {
+                newTaskKey = TASK_KEYS[Math.floor(Math.random() * TASK_KEYS.length)];
+            } while (newTaskKey === currentTaskKey);
+            currentTaskKey = newTaskKey;
+
+            const task = TASKS[currentTaskKey];
+            taskDisplay.textContent = task.command;
+            
+            // Налаштовуємо робочу область для завдання
+            workspace.readOnly = true; // Забороняємо друкувати
+            workspace.focus();
+
+            switch (currentTaskKey) {
+                case 'select':
+                    workspace.value = "Це якийсь текст для виділення.\nВін має кілька рядків.\nВиділіть його весь!";
+                    workspace.blur(); // Знімаємо фокус, щоб Ctrl+A було помітніше
+                    break;
+                case 'copy':
+                    workspace.value = "СЕКРЕТНИЙ КОД 123";
+                    workspace.select(); // Автоматично виділяємо текст для копіювання
+                    break;
+                case 'paste':
+                    workspace.value = "Вставте текст сюди: ";
+                    // Переміщуємо курсор в кінець
+                    workspace.setSelectionRange(workspace.value.length, workspace.value.length);
+                    break;
+                case 'undo':
+                    undoState = "Це був початковий стан. ";
+                    workspace.value = undoState + "А ЦЕ ВЖЕ ЗАЙВЕ!";
+                    break;
+            }
+
+            // Запускаємо таймери для нового завдання
+            taskStartTime = Date.now();
+            taskTimer = setTimeout(endGame, currentIntervalTime);
+            timerInterval = setInterval(updateTimerBar, 30);
+            updateTimerBar();
+        }
+
+        function updateTimerBar() {
+            if (!gameActive) return;
+            const elapsedTime = Date.now() - taskStartTime;
+            const percentRemaining = 1 - (elapsedTime / currentIntervalTime);
+            timerBar.style.width = (percentRemaining * 100) + '%';
+        }
+        
+        function clearAllTimers() {
+            clearTimeout(taskTimer);
+            clearInterval(timerInterval);
+            taskTimer = null;
+            timerInterval = null;
+        }
+
+        /**
+         * Обробник натискання клавіш
+         */
+        function handleKeyDown(e) {
+            if (!gameActive) return;
+
+            // Забороняємо друкувати в полі
+            if (!e.ctrlKey && e.key.length === 1) {
+                e.preventDefault();
+                playIncorrectAnimation();
+            }
+
+            // Нас цікавить тільки Ctrl
+            if (!e.ctrlKey) return;
+
+            // Запобігаємо *всім* стандартним діям Ctrl
+            e.preventDefault();
+
+            const pressedKey = e.key.toLowerCase();
+            const correctKey = TASKS[currentTaskKey].key;
+
+            if (pressedKey === correctKey) {
+                // ПРАВИЛЬНО!
+                
+                // Виконуємо симуляцію дії
+                switch (currentTaskKey) {
+                    case 'select':
+                        workspace.select();
+                        break;
+                    case 'copy':
+                        // Копіюємо виділений текст у наш буфер
+                        const selection = workspace.value.substring(workspace.selectionStart, workspace.selectionEnd);
+                        gameClipboard = selection || gameClipboard; // Зберігаємо, тільки якщо щось виділено
+                        break;
+                    case 'paste':
+                        workspace.value += gameClipboard;
+                        break;
+                    case 'undo':
+                        workspace.value = undoState;
+                        break;
+                }
+                
+                // Зараховуємо бал і переходимо до наступного
+                correctAnswer();
+            } else {
+                // НЕПРАВИЛЬНО
+                playIncorrectAnimation();
+            }
+        }
+        
+        /**
+         * Обробка правильної відповіді
+         */
+        function correctAnswer() {
+            score++;
+            updateScoreDisplay();
+            
+            // Збільшуємо швидкість
+            currentIntervalTime = Math.max(MIN_TIME, currentIntervalTime * TIME_DECREMENT_FACTOR);
+            
+            // Візуальний відгук
+            playCorrectAnimation();
+            
+            // Очищуємо таймери і чекаємо 200мс, щоб гравець побачив результат
+            clearAllTimers();
+            setTimeout(nextTask, 200);
+        }
+
+        function updateScoreDisplay() {
+            scoreDisplay.textContent = score;
+        }
+
+        function playCorrectAnimation() {
+            gameArea.classList.add('correct-animation');
+            setTimeout(() => {
+                gameArea.classList.remove('correct-animation');
+            }, 300);
+        }
+        
+        function playIncorrectAnimation() {
+            gameArea.classList.add('incorrect-animation');
+            setTimeout(() => {
+                gameArea.classList.remove('incorrect-animation');
+            }, 300);
+        }
+
+        // --- Слухачі Подій ---
+        startButton.addEventListener('click', startGame);
+        // Слухаємо натискання клавіш на *весь* документ
+        window.addEventListener('keydown', handleKeyDown);
+        // Забезпечуємо, що при кліку на поле воно одразу у фокусі
+        workspace.addEventListener('focus', () => {
+            if (!gameActive) workspace.blur();
+        });
+    </script>
+
+</body>
+</html>
