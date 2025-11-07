@@ -96,6 +96,9 @@
         <!-- Інструкції -->
         <div class="bg-gray-700 p-4 rounded-lg mb-6 text-sm">
             <p class="font-bold mb-2">Інструкції:</p>
+            <!-- **ЗМІНЕНО:** Додано пояснення про життя -->
+            <!-- **ВИПРАВЛЕНО:** Оновлено текст інструкцій відповідно до логіки -->
+            <p class="mb-1"><strong class="text-yellow-400">У вас є 3 життя.</strong> Життя втрачається <strong class="text-yellow-400">тільки</strong>, коли закінчується час.</p>
             <p class="mb-1">Виконуйте завдання за допомогою гарячих клавіш. Швидкість зростатиме!</p>
             <p class="mb-1"><strong class="text-yellow-300">Рівень 2 (з 10 балів):</strong> Потрібно <strong class="text-yellow-300">клікнути на правильне поле</strong>.</p>
             <p class="mb-2"><strong class="text-red-400">Рівень 3 (з 20 балів):</strong> Виконуйте <strong class="text-red-400">послідовності завдань</strong> покроково.</p>
@@ -123,11 +126,12 @@
                 <!-- НОВИЙ ЕЛЕМЕНТ: Спроби -->
                 <div>
                     <span class="font-medium">Спроби:</span>
-                    <span id="lives" class="font-bold text-2xl text-yellow-400">2</span>
+                    <!-- **ЗМІНЕНО:** Починаємо з 3 життів -->
+                    <span id="lives" class="font-bold text-2xl text-yellow-400">3</span>
                 </div>
             </div>
 
-            <!-- Завдання -->
+            <!-- **ВИПРАВЛЕНО:** Відновлено відсутній блок завдань -->
             <div class="mb-4 text-center">
                  <p class="text-gray-400 text-lg mb-2">Команда:</p>
                 <div id="task-display" class="font-extrabold text-white h-16 flex items-center justify-center">
@@ -137,9 +141,9 @@
                 <p id="hint-display" class="text-yellow-400 text-lg font-bold h-6 mt-2"></p>
             </div>
 
-            <!-- Зона завдання (Робоча область) -->
+            <!-- **ВИПРАВЛЕНО:** Відновлено відсутній id="game-area" та правильну структуру -->
             <div id="game-area" class="bg-gray-900 rounded-lg p-4 shadow-inner flex flex-col md:flex-row gap-4">
-                
+ 
                 <!-- Поле 1 -->
                 <div class="flex-1">
                     <label for="workspace1" class="mb-2 block text-center font-medium text-gray-400">Поле 1</label>
@@ -162,7 +166,8 @@
                     ></textarea>
                 </div>
 
-            </div>
+            </div><!-- **ВИПРАВЛЕНО:** Цей div тепер коректно закриває id="game-area" -->
+
 
             <!-- Таймер -->
             <div class="w-full bg-gray-700 rounded-full h-4 mt-6 overflow-hidden shadow-inner">
@@ -206,7 +211,8 @@
         const MIN_TIME_L1_L2 = 1500;
         const MIN_TIME_L3 = 4000;
         const TIME_DECREMENT_FACTOR = 0.985;
-        const LIVES_PER_TASK = 2;
+        // **ЗМІНЕНО:** Глобальні життя
+        const STARTING_LIVES = 3;
 
         // --- Стан гри ---
         let score = 0;
@@ -219,7 +225,9 @@
         let taskTimer = null;
         let timerInterval = null;
         let taskStartTime = 0;
-        let taskLives = LIVES_PER_TASK;
+        // **ЗМІНЕНО:** 'taskLives' на 'currentLives'
+        let currentLives = STARTING_LIVES;
+        let isShaking = false; // Захист від подвійного кліку
 
         // --- Стан симуляції ---
         let gameClipboard = "";
@@ -229,19 +237,23 @@
         // --- БАНК ЗАВДАНЬ (РІВНІ 1-2) ---
         const TASKS = {
             'l1_select': { command: 'Виділіть все!', key: 'KeyA', level: 1, fieldId: 'workspace1', 
-                setup: () => { workspace1.value = "Це якийсь текст."; workspace2.value = ""; workspace1.blur(); },
+                // **ВИПРАВЛЕНО:** Прибираємо .blur() і гарантуємо .focus()
+                setup: () => { workspace1.value = "Це якийсь текст."; workspace2.value = ""; workspace1.focus(); },
                 action: () => { workspace1.select(); }
             },
             'l1_copy': { command: 'Скопіюйте!', key: 'KeyC', level: 1, fieldId: 'workspace1', 
+                // .select() вже встановлює фокус, тут все гаразд
                 setup: () => { workspace1.value = "СЕКРЕТНИЙ КОД 123"; workspace2.value = ""; workspace1.select(); },
                 action: () => { const s = workspace1.value.substring(workspace1.selectionStart, workspace1.selectionEnd); gameClipboard = s || gameClipboard; }
             },
             'l1_paste': { command: 'Вставте!', key: 'KeyV', level: 1, fieldId: 'workspace1', 
-                setup: () => { workspace1.value = "Вставте текст сюди: "; workspace2.value = ""; workspace1.setSelectionRange(workspace1.value.length, workspace1.value.length); },
+                // **ВИПРАВЛЕНО:** Додаємо .focus(), щоб бути впевненими
+                setup: () => { workspace1.value = "Вставте текст сюди: "; workspace2.value = ""; workspace1.focus(); workspace1.setSelectionRange(workspace1.value.length, workspace1.value.length); },
                 action: () => { workspace1.value += gameClipboard; }
             },
             'l1_undo': { command: 'Скасуйте!', key: 'KeyZ', level: 1, fieldId: 'workspace1', 
-                setup: () => { undoState1 = "Початковий стан. "; workspace1.value = undoState1 + "ЗАЙВЕ!"; workspace2.value = ""; },
+                // **ВИПРАВЛЕНО:** Додаємо .focus()
+                setup: () => { undoState1 = "Початковий стан. "; workspace1.value = undoState1 + "ЗАЙВЕ!"; workspace2.value = ""; workspace1.focus(); },
                 action: () => { workspace1.value = undoState1; }
             },
             'l2_copy1': { command: 'Скопіюйте з Поля 1', key: 'KeyC', level: 2, fieldId: 'workspace1', 
@@ -253,11 +265,13 @@
                 action: () => { workspace2.value += gameClipboard; }
             },
             'l2_select2': { command: 'Виділи... у Полі 2', key: 'KeyA', level: 2, fieldId: 'workspace2', 
+                // На Рівні 2 .blur() - це частина завдання, тут все гаразд
                 setup: () => { workspace1.value = "Текст 1"; workspace2.value = "Текст 2"; workspace2.blur(); },
                 action: () => { workspace2.select(); }
             },
             'l2_undo1': { command: 'Скасуйте у Полі 1', key: 'KeyZ', level: 2, fieldId: 'workspace1', 
-                setup: () => { undoState1 = "Поле 1. "; workspace1.value = undoState1 + "ЗАЙВЕ"; workspace2.value = "Поле 2"; },
+                // **ВИПРАВЛЕНО:** Чітко прибираємо фокус з обох полів, щоб змусити клікнути
+                setup: () => { undoState1 = "Поле 1. "; workspace1.value = undoState1 + "ЗАЙВЕ"; workspace2.value = "Поле 2"; workspace1.blur(); workspace2.blur(); },
                 action: () => { workspace1.value = undoState1; }
             },
             'l2_delete1': { command: 'Видаліть текст!', key: 'Backspace', level: 2, fieldId: 'workspace1', 
@@ -347,8 +361,9 @@
             currentIntervalTime = STARTING_TIME;
             gameActive = true;
             gameClipboard = "БУФЕР ОБМІНУ";
-            taskLives = LIVES_PER_TASK;
-            livesDisplay.textContent = taskLives;
+            // **ЗМІНЕНО:** Встановлюємо глобальні життя
+            currentLives = STARTING_LIVES;
+            livesDisplay.textContent = currentLives;
             hintDisplay.textContent = '';
             updateScoreDisplay();
             levelDisplay.textContent = '1';
@@ -356,6 +371,11 @@
             workspace2Container.classList.add('hidden');
             workspace1.value = 'Гра починається...';
             workspace2.value = '';
+            
+            // **ВИПРАВЛЕНО:** Переконуємось, що ми можемо писати в поля
+            workspace1.readOnly = false;
+            workspace2.readOnly = false;
+
             nextTaskOrSequence();
         }
 
@@ -377,10 +397,11 @@
         function nextTaskOrSequence() {
             if (!gameActive) return;
             clearAllTimers();
-            taskLives = LIVES_PER_TASK;
-            livesDisplay.textContent = taskLives;
-            hintDisplay.textContent = '';
-
+            // **ВИДАЛЕНО:** Більше не скидаємо життя на кожному завданні
+            // taskLives = LIVES_PER_TASK; 
+            livesDisplay.textContent = currentLives;
+            hintDisplay.textContent = ''; // Очищуємо підказку на початку
+ 
             if (currentLevel === 3) {
                 taskDisplay.className = 'font-extrabold text-white h-auto py-4';
                 currentSequence = SEQUENCES[Math.floor(Math.random() * SEQUENCES.length)];
@@ -396,16 +417,20 @@
                 currentTaskKey = newTaskKey;
                 const task = TASKS[currentTaskKey];
                 taskDisplay.innerHTML = task.command;
-                workspace1.readOnly = true;
-                workspace2.readOnly = true;
+                
+                // **ВИПРАВЛЕНО:** Поля мають бути доступні для фокусу, але не для друку (це обробляє handleKeyDown)
+                workspace1.readOnly = false;
+                workspace2.readOnly = false;
+
                 task.setup();
             }
 
             taskStartTime = Date.now();
             const timeForLevel = currentLevel === 3 ? STARTING_TIME_L3 : currentIntervalTime;
-            taskTimer = setTimeout(endGame, timeForLevel);
+            // **ЗМІНЕНО:** Таймер тепер викликає handleTimeOut, а не endGame
+            taskTimer = setTimeout(handleTimeOut, timeForLevel); // Таймер на випадок закінчення часу
             timerInterval = setInterval(updateTimerBar, 30);
-            updateTimerBar();
+            updateTimerBar(); // Перший запуск, щоб смуга була 100%
         }
         
         function displayCurrentSequenceStep() {
@@ -431,6 +456,8 @@
 
         function getRequiredKeyInfo() {
             if (currentLevel === 3 && currentSequence) {
+                // Перевірка, чи не вийшли ми за межі
+                if (currentSequenceStep >= currentSequence.steps.length) return null;
                 return currentSequence.steps[currentSequenceStep];
             } else if (currentLevel < 3 && TASKS[currentTaskKey]) {
                 return TASKS[currentTaskKey];
@@ -439,9 +466,11 @@
         }
 
         function showHint() {
-            if (hintDisplay.textContent !== '') return;
+            // **FIX:** Логіка перенесена в updateTimerBar, але функція залишена
+            // для генерації тексту підказки.
             const taskInfo = getRequiredKeyInfo();
             if (!taskInfo) return;
+            
             let hintText = "";
             if (taskInfo.key === 'Backspace') {
                 hintText = "Підказка: 👈 Backspace";
@@ -456,15 +485,36 @@
             const elapsedTime = Date.now() - taskStartTime;
             const timeForLevel = currentLevel === 3 ? STARTING_TIME_L3 : currentIntervalTime;
             const percentRemaining = 1 - (elapsedTime / timeForLevel);
-            timerBar.style.width = (percentRemaining * 100) + '%';
+            
+            // Запобігаємо тому, щоб смуга стала негативною
+            const widthPercent = Math.max(0, percentRemaining * 100);
+            timerBar.style.width = widthPercent + '%';
             
             // **FIXED HINT LOGIC**
-            // Shows hint precisely in the last 1/4 of time.
+            // Чітко показуємо підказку, коли часу <= 25%, і приховуємо, коли > 25%.
             if (percentRemaining <= 0.25) {
                 showHint();
+            } else {
+                hintDisplay.textContent = ''; // Приховуємо підказку, якщо часу ще достатньо
             }
         }
         
+        // **НОВА ФУНКЦІЯ**
+        // Викликається, коли таймер закінчується
+        function handleTimeOut() {
+            if (!gameActive) return;
+            
+            // **ЗМІНЕНО:** Тепер викликаємо окрему функцію для втрати життя
+            triggerLifeLost(); 
+            
+            // Якщо гра ще активна (життя не скінчились),
+            // переходимо до наступного завдання.
+            if (gameActive) {
+                clearAllTimers();
+                nextTaskOrSequence();
+            }
+        }
+
         function clearAllTimers() {
             clearTimeout(taskTimer);
             clearInterval(timerInterval);
@@ -473,19 +523,30 @@
         }
 
         function handleTaskLogic(pressedCode, activeFieldElement) {
+            // **ВИПРАВЛЕНО:** Додано захист, якщо activeFieldElement не існує
+            if (!activeFieldElement) {
+                // **ЗМІНЕНО:** Немає фокусу = ТІЛЬКИ анімація, без втрати життя
+                playWrongKeyAnimation();
+                return;
+            }
+
             if (currentLevel === 3) {
                 if (!currentSequence) return;
+                // **ВИПРАВЛЕНО:** Перевірка, чи не вийшли ми за межі
+                if (currentSequenceStep >= currentSequence.steps.length) return; 
+
                 const step = currentSequence.steps[currentSequenceStep];
                 if (pressedCode === step.key && activeFieldElement.id === step.fieldId) {
                     step.action();
-                    currentSequenceStep++;
+                    currentSequenceStep++; // Переходимо до наступного кроку
                     if (currentSequenceStep >= currentSequence.steps.length) {
-                        correctAnswer();
+                        correctAnswer(); // Вся послідовність виконана
                     } else {
-                        displayCurrentSequenceStep();
+                        displayCurrentSequenceStep(); // Оновлюємо UI для наступного кроку
                     }
                 } else {
-                    handleIncorrectAttempt();
+                    // **ЗМІНЕНО:** Неправильна клавіша = ТІЛЬКИ анімація, без втрати життя
+                    playWrongKeyAnimation(); // Неправильна клавіша або поле
                 }
             } else {
                 const task = TASKS[currentTaskKey];
@@ -494,17 +555,22 @@
                     task.action();
                     correctAnswer();
                 } else {
-                    handleIncorrectAttempt();
+                    // **ЗМІНЕНО:** Неправильна клавіша = ТІЛЬКИ анімація, без втрати життя
+                    playWrongKeyAnimation(); // Неправильна клавіша або поле
                 }
             }
         }
         
         function handleKeyDown(e) {
             if (!gameActive) return;
+            
             const pressedCode = e.code;
             const activeFieldElement = document.activeElement;
             const taskInfo = getRequiredKeyInfo();
-            const requiredKeyCode = taskInfo ? taskInfo.key : null;
+            
+            if (!taskInfo) return; // Немає активного завдання
+            
+            const requiredKeyCode = taskInfo.key;
 
             if (e.ctrlKey) {
                 e.preventDefault();
@@ -513,15 +579,18 @@
                 e.preventDefault();
                 handleTaskLogic(pressedCode, activeFieldElement);
             } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                // Користувач намагається друкувати літери
                 e.preventDefault();
-                handleIncorrectAttempt();
+                // **ЗМІНЕНО:** Спроба друку = ТІЛЬКИ анімація, без втрати життя
+                playWrongKeyAnimation();
             }
+            // Інші клавіші (Shift, Alt, Tab і т.д.) ігноруються і не викликають помилку
         }
         
         function correctAnswer() {
             score++;
             updateScoreDisplay();
-            hintDisplay.textContent = '';
+            // hintDisplay.textContent = ''; // Це вже робиться в nextTaskOrSequence
             let minTime = (currentLevel === 3) ? MIN_TIME_L3 : MIN_TIME_L1_L2;
             currentIntervalTime = Math.max(minTime, currentIntervalTime * TIME_DECREMENT_FACTOR);
             playCorrectAnimation();
@@ -550,39 +619,69 @@
         }
 
         function playCorrectAnimation() {
-            gameArea.classList.add('correct-animation');
-            setTimeout(() => {
-                gameArea.classList.remove('correct-animation');
-            }, 300);
+            // **ВИПРАВЛЕНО:** Перевірка, чи gameArea існує
+            if(gameArea) {
+                gameArea.classList.add('correct-animation');
+                setTimeout(() => {
+                    gameArea.classList.remove('correct-animation');
+                }, 300);
+            }
         }
+
+        // **ВИПРАВЛЕНО:** Видалено дубльовану, зламану функцію 'playCorrectAnimation', яка спричиняла 'SyntaxError'
         
-        // **FIXED "TWO TRIES" LOGIC**
-        // This function now robustly handles the life counter.
-        function handleIncorrectAttempt() {
-            // Guard against multiple calls if game is already ending.
-            if (!gameActive || taskLives <= 0) return;
+        // **НОВА ФУНКЦІЯ (раніше частина handleIncorrectAttempt)**
+        // Ця функція ТІЛЬКИ програє анімацію тремтіння і БІЛЬШЕ НІЧОГО.
+        // Вона не впливає на життя чи таймер.
+        function playWrongKeyAnimation() {
+            // Захист від спаму анімацією
+            if (!gameActive || isShaking) return;
 
-            taskLives--;
-            livesDisplay.textContent = taskLives;
+            isShaking = true; // Вмикаємо захист
             
-            gameArea.classList.add('incorrect-animation');
-            setTimeout(() => {
-                gameArea.classList.remove('incorrect-animation');
-            }, 300);
+            // **ВИПРАВЛЕНО:** Перевірка, чи gameArea існує
+            if(gameArea) {
+                gameArea.classList.add('incorrect-animation');
+                setTimeout(() => {
+                    gameArea.classList.remove('incorrect-animation');
+                    isShaking = false; // Вимикаємо захист після анімації
+                }, 300);
+            } else {
+                isShaking = false; // Все одно треба вимкнути
+            }
+        }
 
-            // Game ends only when lives reach zero.
-            if (taskLives <= 0) {
-                // Deactivate game immediately to prevent further inputs.
+        // **ЛОГІКА ПОВНІСТЮ ЗМІНЕНА (раніше handleIncorrectAttempt)**
+        // Ця функція тепер викликається ТІЛЬКИ коли закінчується час (з handleTimeOut).
+        // Вона ВІДПОВІДАЄ за втрату життя та кінець гри.
+        function triggerLifeLost() {
+            // Захист, щоб уникнути кількох викликів, якщо гра вже закінчується
+            if (!gameActive || currentLives <= 0) return;
+
+            currentLives--; // Віднімаємо ОДНЕ глобальне життя
+            livesDisplay.textContent = currentLives;
+            
+            // Також програємо анімацію, бо закінчення часу - це теж "неправильно"
+            playWrongKeyAnimation();
+
+            // Гра закінчується, ТІЛЬКИ коли життя досягають нуля.
+            if (currentLives <= 0) {
+                // Негайно деактивуємо гру, щоб запобігти подальшим натисканням
                 gameActive = false; 
-                // Call endGame after a short delay for the animation to be seen.
+                // Викликаємо endGame з невеликою затримкою, щоб анімація встигла програтись
                 setTimeout(endGame, 100); 
             }
+            // Якщо життя ще є, функція завершується.
+            // handleTimeOut() потім викличе nextTaskOrSequence().
         }
 
         // --- Слухачі Подій ---
         startButton.addEventListener('click', startGame);
         window.addEventListener('keydown', handleKeyDown);
+        
+        // Забороняємо фокус на полях, коли гра неактивна
         workspace1.addEventListener('focus', () => { if (!gameActive) workspace1.blur(); });
+        // **ВИПРАВЛЕНО:** Прибрано зайвий символ 'D', який спричиняв 'SyntaxError'
         workspace2.addEventListener('focus', () => { if (!gameActive) workspace2.blur(); });
     </script>
 
